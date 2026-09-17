@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <style id="trava-tela">
+      html { display: none !important; }
+  </style>
+  <script>
+      if (!sessionStorage.getItem("usuarioLogado")) {
+          window.location.replace("index.html");
+      } else {
+          document.getElementById("trava-tela").remove();
+      }
+      window.logoutUsuario = function() {
+          sessionStorage.clear();
+          window.location.replace("index.html");
+      };
+      window.sairDoSistema = window.logoutUsuario;
+      
+      window.addEventListener("pageshow", function(event) {
+          if (event.persisted || (window.performance && window.performance.navigation.type === 2)) {
+              if (!sessionStorage.getItem("usuarioLogado")) window.location.replace("index.html");
+          }
+      });
+  </script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Relatório de Faturamento Líquido | Anacleto Tec</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  
+  <link rel="icon" href="icon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="style.css" />
+  <script type="module" src="firebase-banco.js"></script>
+
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 0; }
+    .container { max-width: 1000px; margin: 40px auto; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); width: 95%; box-sizing: border-box; }
+    .btn-voltar { background: none; border: none; color: #00a2ff; font-size: 15px; font-weight: bold; cursor: pointer; padding: 0; margin-bottom: 20px; }
+    .btn-voltar:hover { text-decoration: underline; }
+    h1 { margin-top: 0; color: #111; font-size: 24px; border-bottom: 2px solid #00a2ff; padding-bottom: 10px; margin-bottom: 25px; text-align: left; }
+    .filtros-container { background-color: #fdfdfd; padding: 25px; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 30px; width: 100%; box-sizing: border-box; }
+    .date-row { display: flex; gap: 20px; margin-bottom: 20px; }
+    .date-col { flex: 1; display: flex; flex-direction: column; }
+    .filtros-container label { font-weight: bold; font-size: 13px; color: #64748b; margin-bottom: 8px; text-transform: uppercase; text-align: left; }
+    .filtros-container input[type="date"] { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px; color: #333; box-sizing: border-box; outline: none; transition: border-color 0.3s; }
+    .filtros-container input[type="date"]:focus { border-color: #00a2ff; }
+    .btn-gerar { flex: 1; padding: 14px; background-color: #00a2ff; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; text-transform: uppercase; cursor: pointer; transition: background 0.3s; }
+    .btn-gerar:hover { background-color: #0088d4; }
+    .btn-gasto { background-color: #ef4444; }
+    .btn-gasto:hover { background-color: #dc2626; }
+    h2 { font-size: 1.6em; color: #34495e; margin-bottom: 15px; text-align: left; width: 100%; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th, td { padding: 12px 15px; border-bottom: 1px solid #e2e8f0; text-align: left; font-size: 14px; }
+    th { background-color: #f8fafc; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 12px; }
+    .text-success { color: #10b981; font-weight: bold; }
+    .text-danger { color: #ef4444; font-weight: bold; }
+    .text-primary { color: #00a2ff; font-weight: bold; }
+    .total-faturamento { font-size: 1.4em; text-align: right; padding: 20px; background: #ecfdf5; border-radius: 8px; border: 1px solid #a7f3d0; color: #10b981; box-sizing: border-box; width: 100%; }
+    .total-faturamento.negativo { background: #fef2f2; border-color: #fecaca; color: #ef4444; }
+    .badge-pag { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; color: white; text-transform: uppercase; }
+    .badge-Dinheiro { background: #10b981; }
+    .badge-Pix { background: #00a2ff; }
+    .badge-Debito { background: #6366f1; }
+    .badge-Credito { background: #f59e0b; }
+    .badge-Outro { background: #64748b; }
+    @media (max-width: 600px) { .date-row { flex-direction: column; gap: 15px; } .botoes-row { flex-direction: column; } }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <button class="btn-voltar" onclick="window.location.href='sistema.html'">⬅ Voltar para o Sistema</button>
+    
+    <h1>Relatório de Faturamento Líquido</h1>
+
+    <div class="filtros-container">
+      <div class="date-row">
+        <div class="date-col">
+          <label for="dataInicio">Data Início:</label>
+          <input type="date" id="dataInicio" />
+        </div>
+        <div class="date-col">
+          <label for="dataFim">Data Fim:</label>
+          <input type="date" id="dataFim" />
+        </div>
+      </div>
+
+      <div class="date-row botoes-row" style="margin-bottom: 0;">
+        <button class="btn-gerar" onclick="gerarRelatorio()">Buscar Resultados</button>
+        <button class="btn-gerar btn-gasto" onclick="abrirModalGasto()">+ Registrar Despesa</button>
+      </div>
+    </div>
+
+    <h2>Resumo Diário do Período</h2>
+    <div style="overflow-x: auto; width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); margin-bottom: 20px;">
+      <table id="tabela-faturamento" class="printer-table" style="margin-bottom: 0;">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Total Entradas (R$)</th>
+            <th>Total Gastos (R$)</th>
+            <th>Valor Líquido (R$)</th>
+            <th>Detalhes das Despesas</th>
+          </tr>
+        </thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+    </div>
+
+    <div class="total-faturamento" id="caixa-total">
+      <strong>Líquido do Período: <span id="valor-total">R$ 0,00</span></strong>
+    </div>
+
+  </div>
+
+  <div id="modal-gasto" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); align-items: center; justify-content: center; z-index: 9999; padding: 15px; box-sizing: border-box;">
+    <div style="background: white; padding: 25px; border-radius: 10px; width: 100%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); text-align: center;">
+      <h2 style="margin-top: 0; color: #ef4444; border-bottom: 2px solid #ef4444; padding-bottom: 10px; text-align: center;">Registrar Nova Despesa</h2>
+      
+      <label style="font-weight: bold; font-size: 13px; color: #64748b; margin-top: 15px; display: block; text-align: left;">Descrição do Gasto:</label>
+      <input type="text" id="g-desc" placeholder="Ex: Conta de Luz, Compra de Peças..." style="width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; outline: none; font-size: 15px;">
+
+      <label style="font-weight: bold; font-size: 13px; color: #64748b; margin-top: 15px; display: block; text-align: left;">Valor Total (R$):</label>
+      <input type="number" id="g-val" placeholder="0.00" step="0.01" style="width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; outline: none; font-size: 15px;">
+
+      <label style="font-weight: bold; font-size: 13px; color: #64748b; margin-top: 15px; display: block; text-align: left;">Forma de Pagamento:</label>
+      <select id="g-forma-pag" style="width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; outline: none; font-size: 15px; background: white;">
+        <option value="Dinheiro">Dinheiro</option>
+        <option value="Pix">Pix</option>
+        <option value="Debito">Cartão de Débito</option>
+        <option value="Credito">Cartão de Crédito</option>
+      </select>
+
+      <label style="font-weight: bold; font-size: 13px; color: #64748b; margin-top: 15px; display: block; text-align: left;">Data do Pagamento:</label>
+      <input type="date" id="g-data" style="width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; outline: none; font-size: 15px;">
+
+      <div style="display: flex; gap: 15px; margin-top: 25px;">
+        <button onclick="fecharModalGasto()" style="flex: 1; padding: 12px; background: #e2e8f0; color: #333; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 15px;">Cancelar</button>
+        <button onclick="salvarGasto()" style="flex: 1; padding: 12px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 15px;">Salvar Gasto</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-ver-despesas" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); align-items: center; justify-content: center; z-index: 9999; padding: 15px; box-sizing: border-box;">
+    <div style="background: white; padding: 25px; border-radius: 10px; width: 100%; max-width: 560px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-height: 80vh; display: flex; flex-direction: column;">
+      <h2 style="margin-top: 0; color: #f39c12; border-bottom: 2px solid #f39c12; padding-bottom: 10px; text-align: left;">Despesas do Dia: <span id="titulo-data-despesas"></span></h2>
+
+      <div style="overflow-y: auto; margin-top: 10px; margin-bottom: 20px;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+              <thead>
+                  <tr style="background: #f8fafc;">
+                      <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Hora</th>
+                      <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Descrição</th>
+                      <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Pagamento</th>
+                      <th style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right;">Valor</th>
+                  </tr>
+              </thead>
+              <tbody id="corpo-tabela-despesas"></tbody>
+          </table>
+      </div>
+
+      <button onclick="fecharModalVerDespesas()" style="width: 100%; padding: 12px; background: #e2e8f0; color: #333; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 15px;">Fechar Janela</button>
+    </div>
+  </div>
+
+  <script src="faturamento.js"></script>
+</body>
+</html>

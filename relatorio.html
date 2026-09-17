@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <style id="trava-tela">
+      html { display: none !important; }
+  </style>
+  <script>
+      if (!sessionStorage.getItem("usuarioLogado")) {
+          window.location.replace("index.html");
+      } else {
+          document.getElementById("trava-tela").remove();
+      }
+      window.logoutUsuario = function() {
+          sessionStorage.clear();
+          window.location.replace("index.html");
+      };
+      window.sairDoSistema = window.logoutUsuario;
+      
+      window.addEventListener("pageshow", function(event) { 
+          if (event.persisted && !sessionStorage.getItem("usuarioLogado")) window.location.replace("index.html"); 
+      });
+  </script>
+  <meta charset="UTF-8" />
+  <title>Relatório Diário - Fechamento</title>
+  <link rel="icon" href="icon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="relatorio.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script type="module" src="firebase-banco.js"></script>
+</head>
+<body>
+  <iframe id="iframe-impressao" style="display:none;"></iframe>
+
+  <div class="container">
+    <div class="header-relatorio">
+        <h1>📊 Relatório Diário e Fechamento</h1>
+        <button class="btn-voltar" onclick="window.location.href='sistema.html'">⬅ Voltar para o Sistema</button>
+    </div>
+    
+    <div class="controles-topo">
+        <div class="campo-data">
+            <label>Selecione a Data:</label>
+            <input type="date" id="report-date" />
+        </div>
+        <div class="botoes-acao">
+            <button id="btnImprimirTermica" onclick="imprimirFechamentoTermico()">🖨️ Imprimir Fechamento (80mm)</button>
+            <button id="btnSalvarPDF" onclick="salvarPDFTela()">📄 Salvar Relatório em PDF</button>
+        </div>
+    </div>
+    
+    <div id="report-content">
+        <p style="text-align:center; padding:40px; color:#7f8c8d;">Selecione uma data para gerar o relatório.</p>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    // Armazena as métricas para a impressora térmica usar depois
+    var metricasDoDia = {};
+
+    function showReport() {
+      var inputData = document.getElementById("report-date");
+      var content = document.getElementById("report-content");
+      if (!inputData || !content) return;
+      
+      var data = inputData.value;
+      if (!data) return;
+
+      var movimentacoes = window.obterDados ? window.obterDados("movimentacoes") : {};
+      var vendas = movimentacoes[data] || [];
+      var partesData = data.split("-");
+      var dataFormatada = partesData.length === 3 ? partesData[2] + "/" + partesData[1] + "/" + partesData[0] : data;
+
+      if (vendas.length === 0) {
+          content.innerHTML = "<div class='empty-state'><h3>Sem Movimentação</h3><p>Nenhuma venda, despesa ou cancelamento registrados nesta data.</p></div>";
+          metricasDoDia = null;
+          return;
+      }
+
+      // 1. Variáveis de Agrupamento
+      var totaisPagamento = {};
+      var rankingProdutos = {};
+      var totalBrutoVendas = 0;
+      var totalSangrias = 0;
+      var totalCancelado = 0;
+      
+      var htmlTabelaVendas = "";
+      var htmlTabelaSangrias = "";
+      var htmlTabelaCancelados = "";
+
+      // 2. Lógica de Processamento e Separação
+      vendas.forEach(function(v) {
+        var qtd = parseFloat(v.quantidade) || 0;
+        var absQtd = Math.abs(qtd);
+        var valor = parseFloat(v.valor) || 0;
+        var subtotal = absQtd * valor;
+        var tipo = v.tipoMovimento ? v.tipoMovimento.toLowerCase() : 'venda';
+        var pgto = v.formaPagamento || "Dinheiro";
+
+        if (tipo === "venda" || !v.tipoMovimento) {
+            totalBrutoVendas += subtotal;
+            totaisPagamento[pgto] = (totaisPagamento[pgto] || 0) + subtotal;
+            
+            var cod = v.codigo || v.produto;
+            if (!rankingProdutos[cod]) {
+                rankingProdutos[cod] = { nome: v.produto, qtd: 0, total: 0 };
+            }
+            rankingProdutos[cod].qtd += absQtd;
+            rankingProdutos[cod].total += subtotal;
+
+            htmlTabelaVendas += `<tr><td>${v.hora||"--:--"}</td><td>${v.produto}</td><td class="center">${absQtd}</td><td class="right">R$ ${subtotal.toFixed(2)}</td></tr>`;
+        } 
+        else if (tipo === "gasto" || tipo === "despesa" || tipo === "sangria" || tipo === "saída") {
+            totalSangrias += subtotal;
+            htmlTabelaSangrias += `<tr><td>${v.hora||"--:--"}</td><td>${v.produto || "Saída"}</td><td class="center">-</td><td class="right text-danger">- R$ ${subtotal.toFixed(2)}</td></tr>`;
+        } 
+        else if (tipo === "cancelado" || tipo === "devolucao" || tipo === "descarte") {
+            totalCancelado += subtotal;
+            htmlTabelaCancelados += `<tr><td>${v.hora||"--:--"}</td><td>${v.produto} (${tipo.toUpperCase()})</td><td class="center">${absQtd}</td><td class="right text-danger">R$ ${subtotal.toFixed(2)}</td></tr>`;
+        }
+      });
+
+      var totalLiquido = totalBrutoVendas - totalSangrias;
+
+      var rankingArray = Object.keys(rankingProdutos).map(function(k) { return rankingProdutos[k]; });
+      rankingArray.sort(function(a, b) { return b.qtd - a.qtd; }); 
+      var top5 = rankingArray.slice(0, 5);
+
+      metricasDoDia = {
+          data: dataFormatada,
+          bruto: totalBrutoVendas,
+          sangrias: totalSangrias,
+          liquido: totalLiquido,
+          cancelado: totalCancelado,
+          pagamentos: totaisPagamento,
+          top5: top5
+      };
+
+      var html = `<div class="report-header-info"><h2>Resumo do Dia: ${dataFormatada}</h2></div>`;
+
+      html += `
+        <div class="kpi-grid">
+            <div class="kpi-card box-bruto"><span>Total de Vendas (Bruto)</span><strong>R$ ${totalBrutoVendas.toFixed(2)}</strong></div>
+            <div class="kpi-card box-saida"><span>Despesas e Sangrias</span><strong>- R$ ${totalSangrias.toFixed(2)}</strong></div>
+            <div class="kpi-card box-liquido"><span>Valor Líquido do Dia</span><strong>R$ ${totalLiquido.toFixed(2)}</strong></div>
+        </div>
+      `;
+
+      html += `<div class="dashboard-split">`;
+      
+      html += `<div class="dash-panel"><h3>💳 Entradas por Pagamento</h3><table class="tb-resumo"><tbody>`;
+      var temPgto = false;
+      Object.keys(totaisPagamento).forEach(function(f) {
+          if(totaisPagamento[f] > 0) {
+              html += `<tr><td>${f.toUpperCase()}</td><td class="right bold text-success">R$ ${totaisPagamento[f].toFixed(2)}</td></tr>`;
+              temPgto = true;
+          }
+      });
+      if(!temPgto) html += `<tr><td colspan="2" class="center text-muted">Nenhuma venda registrada.</td></tr>`;
+      html += `</tbody></table></div>`;
+
+      html += `<div class="dash-panel"><h3>🏆 Top 5 Produtos Mais Vendidos</h3><table class="tb-resumo"><tbody>`;
+      if(top5.length > 0) {
+          top5.forEach(function(p, i) {
+              html += `<tr><td><strong>${i+1}°</strong> ${p.nome.substring(0, 20)}</td><td class="center bold">${p.qtd} un</td><td class="right text-primary">R$ ${p.total.toFixed(2)}</td></tr>`;
+          });
+      } else {
+          html += `<tr><td colspan="3" class="center text-muted">Nenhuma venda registrada.</td></tr>`;
+      }
+      html += `</tbody></table></div>`;
+
+      html += `</div>`;
+
+      if (totalCancelado > 0) {
+          html += `
+          <div class="dash-panel panel-danger" style="margin-top:20px;">
+              <h3 class="text-danger">⚠️ Alerta de Perdas: Cancelamentos e Estornos</h3>
+              <p>Houve um total de <strong>R$ ${totalCancelado.toFixed(2)}</strong> em produtos cancelados, descartados ou devolvidos hoje.</p>
+              <table class="tb-detalhes" style="margin-top:10px;">
+                  <thead><tr><th>Hora</th><th>Produto (Ação)</th><th class="center">Qtd</th><th class="right">Valor Estornado</th></tr></thead>
+                  <tbody>${htmlTabelaCancelados}</tbody>
+              </table>
+          </div>`;
+      }
+
+      if (totalSangrias > 0) {
+          html += `
+          <h3 class="section-title">💸 Detalhamento de Saídas (Despesas/Sangrias)</h3>
+          <table class="tb-detalhes">
+              <thead><tr><th>Hora</th><th>Descrição</th><th class="center">Ref</th><th class="right">Valor</th></tr></thead>
+              <tbody>${htmlTabelaSangrias}</tbody>
+          </table>`;
+      }
+
+      if (totalBrutoVendas > 0) {
+          html += `
+          <h3 class="section-title">🛒 Detalhamento Completo de Vendas</h3>
+          <table class="tb-detalhes">
+              <thead><tr><th>Hora</th><th>Produto</th><th class="center">Qtd</th><th class="right">Subtotal</th></tr></thead>
+              <tbody>${htmlTabelaVendas}</tbody>
+          </table>`;
+      }
+
+      content.innerHTML = html;
+    }
+
+    var reportDateInput = document.getElementById("report-date");
+    if (reportDateInput) reportDateInput.addEventListener("change", showReport);
+
+    function definirDataHoje() {
+      var hoje = new Date();
+      var ano = hoje.getFullYear();
+      var mes = String(hoje.getMonth() + 1).padStart(2, "0");
+      var dia = String(hoje.getDate()).padStart(2, "0");
+      if (reportDateInput && !reportDateInput.value) reportDateInput.value = ano + "-" + mes + "-" + dia;
+    }
+
+    document.addEventListener("bancoPronto", function() { definirDataHoje(); showReport(); });
+    document.addEventListener("dadosAtualizados", showReport);
+    if (window.isBancoPronto) { definirDataHoje(); showReport(); }
+
+    function salvarPDFTela() {
+        var element = document.getElementById("report-content");
+        var dataRelatorio = reportDateInput ? reportDateInput.value : "sem_data";
+        var opt = { 
+            margin: 10, 
+            filename: "Relatorio_Caixa_" + dataRelatorio + ".pdf", 
+            html2canvas: { scale: 2, useCORS: true }, 
+            jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+        };
+        html2pdf().set(opt).from(element).save();
+    }
+
+    function imprimirFechamentoTermico() {
+        if (!metricasDoDia) return alert("Selecione uma data com movimentações para imprimir.");
+
+        var iframe = document.getElementById("iframe-impressao");
+        var doc = iframe.contentDocument || iframe.contentWindow.document;
+
+        var configLoja = window.obterDados ? window.obterDados("configLoja") : null;
+        var nomeLoja = configLoja && configLoja.nome ? configLoja.nome : "Nome da Loja";
+        var cnpjLoja = configLoja && configLoja.cnpj ? configLoja.cnpj : "00.000.000/0000-00";
+        var operador = sessionStorage.getItem("usuarioLogado") || "Admin";
+
+        var estiloTexto = "body { font-family: 'Courier New', Courier, monospace; font-size: 12px; width: 78mm; margin: 0; padding: 10px; color: #000; } " +
+                          "h2, h3 { margin: 2px 0; text-align: center; font-size: 14px; font-weight: bold; color: #000; } " +
+                          "p { margin: 2px 0; text-align: center; font-size: 11px; color: #000; } " +
+                          ".divider { border-top: 1px dashed #000; margin: 8px 0; } " +
+                          "table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 8px 0; color: #000; } " +
+                          "th { border-bottom: 1px dashed #000; padding-bottom: 3px; text-align: left; font-weight: bold; } " +
+                          "td { padding: 3px 0; vertical-align: top; } " +
+                          ".right { text-align: right; } .center { text-align: center; } .bold { font-weight: bold; } " +
+                          ".info-line { display: flex; justify-content: space-between; font-size: 11px; margin: 3px 0; }";
+
+        var html = "<style>" + estiloTexto + "</style>";
+        html += "<h2>" + nomeLoja + "</h2><p>CNPJ: " + cnpjLoja + "</p>";
+        html += "<div class='divider'></div><h3>FECHAMENTO DE CAIXA</h3><div class='divider'></div>";
+        html += "<div class='info-line'><span>Data do Movimento:</span><span>" + metricasDoDia.data + "</span></div>";
+        html += "<div class='info-line'><span>Impresso por:</span><span>" + operador + "</span></div>";
+        html += "<div class='info-line'><span>Data Emissão:</span><span>" + new Date().toLocaleString("pt-BR") + "</span></div>";
+        
+        html += "<div class='divider'></div><h3>ENTRADAS (VENDAS)</h3>";
+        var temPgto = false;
+        Object.keys(metricasDoDia.pagamentos).forEach(function(f) {
+            if (metricasDoDia.pagamentos[f] > 0) {
+                html += "<div class='info-line'><span>" + f.toUpperCase() + ":</span><span>R$ " + metricasDoDia.pagamentos[f].toFixed(2) + "</span></div>";
+                temPgto = true;
+            }
+        });
+        if(!temPgto) html += "<p>Sem vendas registradas.</p>";
+        html += "<div class='info-line bold'><span>TOTAL BRUTO:</span><span>R$ " + metricasDoDia.bruto.toFixed(2) + "</span></div>";
+
+        html += "<div class='divider'></div><h3>SAÍDAS E PERDAS</h3>";
+        html += "<div class='info-line text-danger'><span>DESPESAS / SANGRIAS:</span><span>- R$ " + metricasDoDia.sangrias.toFixed(2) + "</span></div>";
+        html += "<div class='info-line text-danger'><span>CANCELAMENTOS:</span><span>R$ " + metricasDoDia.cancelado.toFixed(2) + "</span></div>";
+
+        html += "<div class='divider'></div>";
+        html += "<div class='info-line bold' style='font-size:14px;'><span>LÍQUIDO EM CAIXA:</span><span>R$ " + metricasDoDia.liquido.toFixed(2) + "</span></div>";
+        html += "<p style='font-size:9px;'>(Total Bruto abatendo as Sangrias/Despesas)</p>";
+
+        if (metricasDoDia.top5.length > 0) {
+            html += "<div class='divider'></div><h3>TOP 5 MAIS VENDIDOS</h3>";
+            html += "<table><thead><tr><th>QTD</th><th>PRODUTO</th><th class='right'>TOTAL</th></tr></thead><tbody>";
+            metricasDoDia.top5.forEach(function(p) {
+                html += "<tr><td class='center'>" + p.qtd + "</td><td>" + p.nome.substring(0,18) + "</td><td class='right'>" + p.total.toFixed(2) + "</td></tr>";
+            });
+            html += "</tbody></table>";
+        }
+
+        html += "<div class='divider'></div><p>*** FIM DO RELATÓRIO ***</p>";
+
+        doc.open();
+        doc.write(html);
+        doc.close();
+
+        setTimeout(function() { iframe.contentWindow.focus(); iframe.contentWindow.print(); }, 500);
+    }
+  </script>
+</body>
+</html>

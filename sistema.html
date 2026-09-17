@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <style id="trava-tela">
+        /* A página nasce totalmente invisível */
+        html { display: none !important; }
+    </style>
+    <script>
+        // Verificação instantânea
+        if (!sessionStorage.getItem("usuarioLogado")) {
+            window.location.replace("index.html"); 
+        } else {
+            // Destrói a trava de invisibilidade se o login for válido
+            document.getElementById("trava-tela").remove();
+        }
+        window.logoutUsuario = function() {
+            sessionStorage.clear();
+            window.location.replace("index.html");
+        };
+        window.sairDoSistema = window.logoutUsuario;
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Controle | Gestão</title>
+    <link rel="icon" href="icon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="style.css">
+    <script type="module" src="firebase-banco.js"></script>
+    <style>
+        #userMenu { position: relative; cursor: pointer; user-select: none; }
+        #userMenuOptions { display: none; position: absolute; top: 40px; right: 0; background-color: white; min-width: 240px; box-shadow: 0px 8px 16px rgba(0,0,0,0.2); border-radius: 8px; padding: 10px 0; z-index: 9999; border: 1px solid #ddd; }
+        #userMenuOptions button { width: 100%; text-align: left; padding: 12px 20px; background: none; border: none; cursor: pointer; font-size: 14px; color: #333; transition: background 0.2s; }
+        #userMenuOptions button:hover { background-color: #f5f5f5; }
+        /* CORREÇÃO AQUI: Agora só abre com a classe .aberto (via clique) */
+        #userMenu.aberto #userMenuOptions { display: block; }
+    </style>
+</head>
+
+<body id="painel-body">
+
+    <header id="main-header-bar">
+        <div class="header-logo">
+            <span id="header-nome-empresa">🛒 BEKAS BURGUER - Estoque</span>
+        </div>
+        
+        <div class="header-actions">
+            <button id="btn-backup-export" onclick="exportarBackup()" class="btn-top">📤 Backup</button>
+            <input type="file" id="inputBackup" style="display:none" onchange="importarBackup(event)" accept=".json" />
+            <button id="btn-backup-import" onclick="document.getElementById('inputBackup').click()" class="btn-top">📥 Importar</button>
+            
+            <button id="btn-config-index" class="settings-button admin-only btn-top" onclick="abrirModalConfigTema()">🎨 Personalizar Tema</button>
+            
+            <div id="userMenuContainerGlobal">
+                <!-- CORREÇÃO AQUI: Adicionado onclick para abrir o menu -->
+                <div id="userMenu" class="menu-item btn-top" onclick="this.classList.toggle('aberto')">👤 <span id="nome-usuario-logado">Usuário</span>
+                    <div id="userMenuOptions" class="submenu">
+                       <button id="btn-menu-conectar-firebase" onclick="abrirModalFirebase()" style="display: none;">☁️ Conectar Firebase</button>
+                        <button class="admin-only" onclick="abrirModalPermissoes()">🔐 Permissões de Acesso</button>
+                        <button class="admin-only" onclick="abrirModalSenhasSistema()">🔑 Senhas do Sistema</button>
+                        <button id="btn-menu-config-emp" onclick="abrirModalConfigEmpresa()" style="display: none;">⚙️ Configurações da Empresa</button>
+                        
+                        <hr id="separador-menu-usu" style="border-color: #eee; margin: 5px 0;">
+                        
+                        <button id="btn-menu-criar-usu" onclick="abrirModalCriarUsuario()" style="display: none;">👤 Criar usuário</button>
+                        <button id="btn-menu-editar-usu" onclick="abrirModalEditarUsuario()" style="display: none;">✏️ Editar usuários</button>
+                        <button id="btn-menu-excluir-usu" onclick="abrirModalExcluirUsuario()" style="display: none;">❌ Excluir usuários</button>
+                        <button id="btn-menu-ver-usu" onclick="abrirModalListarUsuarios()" style="display: none;">📋 Todos os usuários</button>
+                        
+                        <hr style="border-color: #eee; margin: 5px 0;">
+                        <button onclick="sairDoSistema()" style="color: #e74c3c; font-weight: bold;">Sair do Sistema</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+        <div id="alerta-firebase" class="admin-only" style="display: none; width: 100%; max-width: 1200px; background: #f39c12; color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: bold;">
+            ⚠️ O Banco de Dados Firebase não está conectado. Clique no menu "Usuário > Conectar Firebase".
+        </div>
+
+        <div class="dashboard-grid">
+             <div id="card-caixa" class="dash-card card-cupons" onclick="window.location.href='caixa.html'">
+                <div class="card-icon">🧾</div>
+                <h3>Frente de caixa</h3>
+                <p>Realizar vendas e emitir cupom</p>
+            </div>
+            
+            <div id="card-cupons" class="dash-card card-cupons" onclick="window.location.href='cupons.html'">
+                <div class="card-icon">🏷️</div>
+                <h3>Gerenciar Cupons</h3>
+                <p>Reimprimir ou cancelar recibos</p>
+            </div>
+
+            <div id="card-cozinha" class="dash-card card-alerta" style="border-left-color: #e67e22; display: none;" onclick="window.location.href='cozinha.html'">
+                <div class="card-icon">👨‍🍳</div>
+                <h3>Monitor da Cozinha</h3>
+                <p>Acompanhar pedidos (KDS)</p>
+            </div>
+
+            <div id="card-fidelidade" class="dash-card card-alerta" style="border-left-color: #f39c12; display: none;" onclick="window.location.href='fidelidade.html'">
+                <div class="card-icon">⭐</div>
+                <h3>Clube Fidelidade</h3>
+                <p>Pesquisar e gerenciar clientes</p>
+            </div>
+
+            <div id="card-registrar_produto" class="dash-card card-estoque" onclick="abrirModalRegistrarProduto()">
+                <div class="card-icon">➕</div>
+                <h3>Registrar Produto</h3>
+                <p>Adicionar novo item no estoque</p>
+            </div>
+
+            <div id="card-todos_produtos" class="dash-card card-lista" onclick="window.location.href='todos-produtos.html'">
+                <div class="card-icon">📦</div>
+                <h3>Todos os Produtos</h3>
+                <p>Visualizar catálogo completo</p>
+            </div>
+
+            <div id="card-verificar_quantidade" class="dash-card card-verificar" onclick="abrirModalVerificarQuantidade()">
+                <div class="card-icon">🔍</div>
+                <h3>Verificar Quantidade</h3>
+                <p>Consultar item por código ou nome</p>
+            </div>
+
+            <div id="card-fim_estoque" class="dash-card card-alerta" onclick="window.location.href='fim_estoque.html'">
+                <div class="card-icon">⚠️</div>
+                <h3>Fim de Estoque</h3>
+                <p>Relatório de produtos esgotando</p>
+            </div>
+
+            <div id="card-faturamento" class="dash-card card-financeiro" onclick="window.location.href='faturamento.html'">
+                <div class="card-icon">💰</div>
+                <h3>Faturamento Líquido</h3>
+                <p>Painel de lucros e despesas</p>
+            </div>
+
+            <div id="card-relatorio" class="dash-card card-relatorio" onclick="window.location.href='relatorio.html'">
+                <div class="card-icon">📅</div>
+                <h3>Relatório Diário</h3>
+                <p>Resumo de caixa do dia</p>
+            </div>
+        </div>
+
+        <div id="zona-apagar-tudo" style="display: none; margin-top: 40px; text-align: center;">
+            <button onclick="confirmarApagarDados()" style="background:#e74c3c; color:white; padding:12px 25px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; box-shadow: 0 4px 6px rgba(231,76,60,0.3);">🗑️ Apagar Todos os Registros do Sistema</button>
+        </div>
+    </main>
+
+    <footer class="system-footer" id="main-footer-bar">
+        <p>© 2026 - Sistema de Controle de Estoque</p>
+    </footer>
+
+    <!-- MODAL FIREBASE -->
+    <div id="modalFirebase" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 9999;">
+        <div style="background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 500px;">
+            <h2 style="color: #2c3e50; margin-top: 0; border-bottom: 2px solid #f39c12; padding-bottom: 10px;">☁️ Conectar Banco de Dados</h2>
+            <textarea id="firebaseConfigInput" rows="10" placeholder='Cole seu código JSON aqui' style="width: 100%; padding: 10px; margin-top: 15px; border-radius: 6px; border: 1px solid #ccc; font-family: monospace; font-size: 12px; resize: vertical;"></textarea>
+            <div style="display: flex; gap: 15px; margin-top: 20px;">
+                <button onclick="fecharModal('modalFirebase')" style="flex: 1; padding: 12px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer;">Cancelar</button>
+                <button onclick="salvarConfigFirebase()" style="flex: 1; padding: 12px; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer;">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PERMISSÕES -->
+    <div id="modalPermissoes" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 9999;">
+        <div style="background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto;">
+            <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-top: 0;">🔐 Permissões de Acesso</h2>
+            <label style="display: block; margin-top: 15px; font-weight: bold; color: #555;">Selecione o Usuário:</label>
+            <select id="selectUsuarioPermissao" onchange="carregarPermissoesUsuario()" style="width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px;"></select>
+            
+            <div id="listaPermissoes" style="margin-top: 20px; background: #f9f9f9; padding: 15px; border-radius: 6px; border: 1px solid #eee; display: none;">
+                <p style="font-size: 13px; color: #777; margin-bottom: 10px;"><b>Acesso a Telas:</b></p>
+                <label style="display: block; margin-bottom: 8px;"><input type="checkbox" id="perm-conectar_firebase"> ☁️ Conectar Firebase</label>
+                <label style="display: block; margin-bottom: 8px;"><input type="checkbox" id="perm-caixa"> 🧾 Frente de Caixa</label>
+                <label style="display: block; margin-bottom: 8px;"><input type="checkbox" id="perm-cupons"> 🏷️ Gerenciar Cupons</label>
+                <label style="display: block; margin-bottom: 8px;"><input type="checkbox" id="perm-cozinha"> 👨‍🍳 Monitor da Cozinha</label>
+                <label style="display: block; margin-bottom: 8px;"><input type="checkbox" id="perm-fidelidade"> ⭐ Clube Fidelidade</label>
+                <label style="display: block; margin-bottom: 8px;"><input type="checkbox" id="perm-registrar_produto"> ➕ Registrar Produto</label>
+                <label style="display: block; margin-bottom: 8px;"><input type="checkbox" id="perm-todos_produtos"> 📦 Todos os Produtos</label>
+                <label style="display: block; margin-bottom: 8px;"><input type="checkbox" id="perm-verificar_quantidade"> 🔍 Verificar Quantidade</label>
+                <label style="display: block; margin-bottom: 8px;"><input type="checkbox" id="perm-fim_estoque"> ⚠️ Fim de Estoque</label>
+                <label style="display: block; margin-bottom: 8px;"><input type="checkbox" id="perm-faturamento"> 💰 Faturamento Líquido</label>
+                <label style="display: block; margin-bottom: 8px;"><input type="checkbox" id="perm-relatorio"> 📅 Relatório Diário</label>
+                
+                <hr style="border: 0; border-top: 1px solid #ccc; margin: 15px 0;">
+                <p style="font-size: 13px; color: #777; margin-bottom: 10px;"><b>Controles do Sistema:</b></p>
+                <label style="display: block; margin-bottom: 8px; color: #e74c3c;"><input type="checkbox" id="perm-apagar_tudo"> 🗑️ Apagar Todos os Dados</label>
+                <label style="display: block; margin-bottom: 8px;"><input type="checkbox" id="perm-config_empresa"> ⚙️ Configurações da Empresa</label>
+                <label style="display: block; margin-bottom: 8px;"><input type="checkbox" id="perm-criar_usuario"> 👤 Criar Usuários</label>
+                <label style="display: block; margin-bottom: 8px;"><input type="checkbox" id="perm-editar_usuario"> ✏️ Editar Usuários</label>
+                <label style="display: block; margin-bottom: 8px;"><input type="checkbox" id="perm-excluir_usuario"> ❌ Excluir Usuários</label>
+                <label style="display: block; margin-bottom: 8px;"><input type="checkbox" id="perm-ver_usuarios"> 📋 Ver Todos os Usuários</label>
+            </div>
+            
+            <div style="display: flex; gap: 15px; margin-top: 20px;">
+                <button onclick="fecharModal('modalPermissoes')" style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer;">Cancelar</button>
+                <button onclick="salvarPermissoesUsuario()" style="flex: 1; padding: 12px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL SENHAS DO SISTEMA -->
+    <div id="modalSenhasSistema" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 9999;">
+        <div style="background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 450px;">
+            <h2 style="color: #2c3e50; margin-top: 0; border-bottom: 2px solid #e74c3c; padding-bottom: 10px;">🔑 Senhas do Sistema</h2>
+            <p style="font-size: 13px; color: #666; margin-bottom: 20px;">Aqui você altera as senhas das ações restritas do sistema.</p>
+
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Senha Master (Desconto, Cancelar Cupom, Apagar Dados):</label>
+            <input type="text" id="senha-sys-master" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; margin-bottom: 15px;">
+
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Senha Cancelar Item (Na Venda do Caixa):</label>
+            <input type="text" id="senha-sys-cancelar" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; margin-bottom: 15px;">
+
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Senha para Fechar o Caixa:</label>
+            <input type="text" id="senha-sys-fechar" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; margin-bottom: 20px;">
+
+            <div style="display: flex; gap: 15px;">
+                <button onclick="fecharModal('modalSenhasSistema')" style="flex: 1; padding: 12px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer;">Cancelar</button>
+                <button onclick="salvarSenhasSistema()" style="flex: 1; padding: 12px; background: #e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Salvar Senhas</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIGURAÇÕES DA EMPRESA -->
+    <div id="modalConfigEmpresa" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 9999;">
+        <div style="background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 450px; max-height: 90vh; overflow-y: auto;">
+            <h2 style="color: #2c3e50; margin-top: 0; border-bottom: 2px solid #8e44ad; padding-bottom: 10px;">⚙️ Configurações da Empresa</h2>
+            <div style="margin-top: 20px; font-size: 15px; color: #333;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Nome do Sistema (Cabeçalho):</label>
+                <input type="text" id="emp-nome-cabecalho" placeholder="Ex: 🛒 Meu Negócio" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; margin-bottom: 15px;">
+                
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Tamanho da Impressora (Papel):</label>
+                <select id="emp-tamanho-impressora" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; margin-bottom: 15px;">
+                    <option value="58">Bobina 58mm (Pequena)</option>
+                    <option value="80">Bobina 80mm (Grande)</option>
+                </select>
+
+                <div style="background: #fdf2e9; padding: 15px; border-radius: 8px; border: 1px solid #f39c12; margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 10px; cursor: pointer; color: #d35400; font-weight: bold;">
+                        <input type="checkbox" id="emp-usar-fidelidade" onchange="toggleFidelidadeConfig()" style="transform: scale(1.2); margin-right: 8px;"> ⭐ Habilitar Clube Fidelidade
+                    </label>
+                    <div id="config-fidelidade-opcoes" style="display: none; margin-top: 10px;">
+                        <label style="font-size: 13px; font-weight: bold;">Meta de Compras para o Brinde:</label>
+                        <input type="number" id="emp-fidelidade-meta" value="10" min="1" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 5px; border: 1px solid #ccc;">
+                        
+                        <label style="font-size: 13px; font-weight: bold;">Produto do Brinde:</label>
+                        <select id="emp-fidelidade-brinde" style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ccc;"></select>
+                    </div>
+                </div>
+
+                <label style="display: block; margin-bottom: 15px; cursor: pointer;">
+                    <input type="checkbox" id="emp-usar-numero-pedido" style="transform: scale(1.2); margin-right: 10px;"> Imprimir Número do Pedido no Cupom
+                </label>
+                <label style="display: block; margin-bottom: 15px; cursor: pointer;">
+                    <input type="checkbox" id="emp-usar-monitor-cozinha" style="transform: scale(1.2); margin-right: 10px;"> Habilitar Monitor da Cozinha (KDS)
+                </label>
+                <label style="display: block; margin-bottom: 15px; cursor: pointer;">
+                    <input type="checkbox" id="emp-usar-backup" style="transform: scale(1.2); margin-right: 10px;"> Habilitar botões de Backup e Importação
+                </label>
+                <label style="display: block; margin-bottom: 15px; cursor: pointer;">
+                    <input type="checkbox" id="emp-usar-modal-cliente" style="transform: scale(1.2); margin-right: 10px;"> Mostrar tela de 'Nome / Observação' no Caixa
+                </label>
+
+                <div style="background: #fdfdfd; padding: 10px; border-radius: 6px; border: 1px solid #ddd; margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; cursor: pointer; color: #c0392b; font-weight: bold;">
+                        <input type="checkbox" id="emp-usar-estoque-negativo" style="transform: scale(1.2); margin-right: 10px;"> 📉 Permitir Venda com Estoque Negativo
+                    </label>
+                    <p style="font-size: 11px; color: #666; margin: 0; padding-left: 25px;">Se ativado, o caixa não vai travar quando o estoque do produto chegar a zero.</p>
+                </div>
+            </div>
+            <div style="display: flex; gap: 15px; margin-top: 20px;">
+                <button onclick="fecharModal('modalConfigEmpresa')" style="flex: 1; padding: 12px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer;">Cancelar</button>
+                <button onclick="salvarConfigEmpresa()" style="flex: 1; padding: 12px; background: #8e44ad; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Salvar Configurações</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CRIAR USUÁRIO -->
+    <div id="modal-criar-usuario" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 9999;">
+        <div style="background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 400px;">
+            <h3 style="margin-top: 0; color: #2c3e50;">👤 Criar Usuário</h3>
+            <input type="text" id="novo-usuario-nome" placeholder="Nome do Usuário" style="width: 100%; padding: 10px; margin-top: 10px; border-radius: 5px; border: 1px solid #ccc;">
+            <input type="password" id="novo-usuario-senha" placeholder="Senha" style="width: 100%; padding: 10px; margin-top: 10px; border-radius: 5px; border: 1px solid #ccc;">
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="fecharModal('modal-criar-usuario')" style="flex: 1; padding: 10px; background: #95a5a6; color: white; border: none; border-radius: 5px;">Cancelar</button>
+                <button onclick="criarUsuario()" style="flex: 1; padding: 10px; background: #27ae60; color: white; border: none; border-radius: 5px;">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- OUTROS MODAIS CONTINUAM EXATAMENTE IGUAIS -->
+    
+    <div id="modal-excluir-usuario" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 9999;">
+        <div style="background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 400px;">
+            <h3 style="margin-top: 0; color: #e74c3c;">🗑️ Excluir Usuário</h3>
+            <select id="select-excluir-usuario" style="width: 100%; padding: 10px; margin-top: 10px; border-radius: 5px; border: 1px solid #ccc;"></select>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="fecharModal('modal-excluir-usuario')" style="flex: 1; padding: 10px; background: #95a5a6; color: white; border: none; border-radius: 5px;">Cancelar</button>
+                <button onclick="excluirUsuario()" style="flex: 1; padding: 10px; background: #e74c3c; color: white; border: none; border-radius: 5px;">Excluir</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-editar-usuario" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 9999;">
+        <div style="background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 400px;">
+            <h3 style="margin-top: 0; color: #f39c12;">✏️ Editar Usuário</h3>
+            <select id="select-editar-usuario" style="width: 100%; padding: 10px; margin-top: 10px; border-radius: 5px; border: 1px solid #ccc;"></select>
+            <input type="text" id="editar-usuario-nova-senha" placeholder="Nova Senha" style="width: 100%; padding: 10px; margin-top: 10px; border-radius: 5px; border: 1px solid #ccc;">
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="fecharModal('modal-editar-usuario')" style="flex: 1; padding: 10px; background: #95a5a6; color: white; border: none; border-radius: 5px;">Cancelar</button>
+                <button onclick="editarUsuario()" style="flex: 1; padding: 10px; background: #f39c12; color: white; border: none; border-radius: 5px;">Atualizar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-listar-usuarios" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 9999;">
+        <div style="background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 500px;">
+            <h3 style="margin-top: 0; color: #2980b9;">📋 Todos os Usuários e Senhas</h3>
+            <div id="lista-de-usuarios-cadastrados" style="margin-top: 10px; max-height: 250px; overflow-y: auto; background: #f9f9f9; padding: 10px; border: 1px solid #eee; border-radius: 5px;"></div>
+            <button onclick="fecharModal('modal-listar-usuarios')" style="width: 100%; padding: 10px; margin-top: 15px; background: #95a5a6; color: white; border: none; border-radius: 5px;">Fechar</button>
+        </div>
+    </div>
+
+    <div id="modalRegistrarProduto" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 9999;">
+        <div style="background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 450px;">
+            <h2 style="color: #28a745; margin-top: 0;">➕ Registrar Produto</h2>
+            <label style="display:block; margin-top:10px;">Código de Barras:</label>
+            <input type="text" id="newBarcodeModal" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
+            <label style="display:block; margin-top:10px;">Nome do Produto:</label>
+            <input type="text" id="newNameModal" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
+            <label style="display:block; margin-top:10px;">Quantidade Inicial:</label>
+            <input type="number" id="newStockModal" value="1" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
+            <label style="display:block; margin-top:10px;">Preço (R$):</label>
+            <input type="number" id="newPriceModal" step="0.01" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="fecharModal('modalRegistrarProduto')" style="flex: 1; padding: 10px; background: #6c757d; color: white; border: none; border-radius: 5px;">Cancelar</button>
+                <button onclick="registerProductModal()" style="flex: 1; padding: 10px; background: #28a745; color: white; border: none; border-radius: 5px;">Salvar Produto</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalEditarProduto" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 9999;">
+        <div style="background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 450px;">
+            <h2 style="color: #ffc107; margin-top: 0;">✏️ Consultar / Editar Produto</h2>
+            <label style="display:block; margin-top:10px;">Código (Digite e aperte Enter):</label>
+            <input type="text" id="editProdutoCodigo" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
+            <label style="display:block; margin-top:10px;">Nome:</label>
+            <input type="text" id="editProdutoNome" readonly style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; background: #eee;">
+            <label style="display:block; margin-top:10px;">Quantidade:</label>
+            <input type="number" id="editProdutoQuantidade" readonly style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; background: #eee;">
+            <label style="display:block; margin-top:10px;">Preço (R$):</label>
+            <input type="number" id="editProdutoPreco" step="0.01" readonly style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; background: #eee;">
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="fecharModal('modalEditarProduto')" style="flex: 1; padding: 10px; background: #6c757d; color: white; border: none; border-radius: 5px;">Fechar</button>
+                <button onclick="solicitarSenha()" style="flex: 1; padding: 10px; background: #ffc107; color: #333; border: none; border-radius: 5px; font-weight:bold;">Liberar Edição</button>
+                <button onclick="salvarEdicaoProduto()" style="flex: 1; padding: 10px; background: #28a745; color: white; border: none; border-radius: 5px;">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="senhaModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 10000;">
+        <div style="background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 350px; text-align: center;">
+            <h3 style="margin-top: 0;">🔐 Senha Administrativa</h3>
+            <p style="font-size: 13px; color: #666;">Digite a Senha Master do sistema para editar.</p>
+            <input type="password" id="senhaInput" placeholder="Senha Master" onkeypress="verificarSenha(event)" style="width: 100%; padding: 10px; margin-top: 15px; border-radius: 5px; border: 1px solid #ccc; text-align: center;">
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="fecharModal('senhaModal')" style="flex: 1; padding: 10px; background: #6c757d; color: white; border: none; border-radius: 5px;">Cancelar</button>
+                <button onclick="verificarSenha({key: 'Enter'})" style="flex: 1; padding: 10px; background: #28a745; color: white; border: none; border-radius: 5px;">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-configuracoes-tema" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 9999;">
+        <div style="background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 450px;">
+            <h2 style="margin-top: 0; color: #2c3e50;">🎨 Personalizar Tema</h2>
+            
+            <label style="display:block; margin-top:15px; font-weight:bold;">Cor do Cabeçalho e Rodapé:</label>
+            <input type="color" id="cor-fundo-header" style="width: 100%; height: 40px; margin-top: 5px; border:none;">
+            <label style="display:block; margin-top:15px; font-weight:bold;">Cor do Texto do Cabeçalho:</label>
+            <input type="color" id="cor-texto-header" style="width: 100%; height: 40px; margin-top: 5px; border:none;">
+            <button onclick="salvarCoresTema()" style="width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 5px; margin-top: 15px;">Aplicar Cores</button>
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+            <label style="display:block; font-weight:bold;">Imagem de Fundo (Wallpaper):</label>
+            <input type="file" id="input-fundo-tela" accept="image/*" style="width: 100%; margin-top: 5px;">
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="salvarImagemFundo()" style="flex: 1; padding: 10px; background: #3498db; color: white; border: none; border-radius: 5px;">Definir Fundo</button>
+                <button onclick="removerImagemFundo()" style="flex: 1; padding: 10px; background: #e74c3c; color: white; border: none; border-radius: 5px;">Limpar Fundo</button>
+            </div>
+            <button onclick="fecharModal('modal-configuracoes-tema')" style="width: 100%; padding: 10px; background: #6c757d; color: white; border: none; border-radius: 5px; margin-top: 20px;">Fechar</button>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIRMAR IMPORTAÇÃO -->
+    <div id="modal-confirm-import" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 10005;">
+        <div class="modal-content" style="background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 400px; text-align: center;">
+            <h1 style="font-size: 40px; margin: 0; color: #e74c3c;">🚨</h1>
+            <h3 style="color: #e74c3c; margin-top: 10px;">ATENÇÃO</h3>
+            <p style="font-size: 15px; color: #333; margin-bottom: 20px;">A importação substituirá 100% dos dados, configurações, senhas e plano de fundo. Continuar?</p>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="fecharModal('modal-confirm-import')" style="flex: 1; padding: 12px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer;">Cancelar</button>
+                <button onclick="executarImportacao()" style="flex: 1; padding: 12px; background: #e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Sim, Importar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL SUCESSO RESTAURAÇÃO -->
+    <div id="modal-sucesso-import" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 10006;">
+        <div class="modal-content" style="background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 350px; text-align: center;">
+            <h1 style="font-size: 50px; margin: 0; color: #27ae60;">✅</h1>
+            <h3 style="color: #27ae60; margin-top: 10px;">Sucesso!</h3>
+            <p style="font-size: 15px; color: #333; margin-bottom: 20px;">Sistema restaurado com sucesso!</p>
+            <button onclick="window.location.reload()" style="width: 100%; padding: 12px; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">OK (Recarregar)</button>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIRMAR APAGAR -->
+    <div id="modal-confirm-apagar" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 10005;">
+        <div class="modal-content" style="background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 400px; text-align: center;">
+            <h1 style="font-size: 40px; margin: 0; color: #c0392b;">🚨</h1>
+            <h3 style="color: #c0392b; margin-top: 10px;">CUIDADO!</h3>
+            <p style="font-size: 15px; color: #333; margin-bottom: 20px;">Isto apagará TODOS os registros de vendas, produtos, clientes fidelidade, pedidos da cozinha e usuários (exceto Admin). Tem certeza absoluta?</p>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="fecharModal('modal-confirm-apagar')" style="flex: 1; padding: 12px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer;">Cancelar</button>
+                <button onclick="pedirSenhaApagar()" style="flex: 1; padding: 12px; background: #c0392b; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Sim, Apagar Tudo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL SENHA APAGAR -->
+    <div id="modal-senha-apagar" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 10006;">
+        <div class="modal-content" style="background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 350px; text-align: center;">
+            <h3 style="color: #c0392b; margin-top: 0;">🔑 Senha Master</h3>
+            <p style="font-size: 14px; color: #666; margin-bottom: 15px;">Digite a senha master para confirmar a exclusão total:</p>
+            <input type="password" id="input-senha-apagar" placeholder="Senha Master" onkeypress="if(event.key === 'Enter') executarApagarDados()" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; margin-bottom: 20px; text-align: center;">
+            <div style="display: flex; gap: 10px;">
+                <button onclick="fecharModal('modal-senha-apagar')" style="flex: 1; padding: 10px; background: #95a5a6; color: white; border: none; border-radius: 5px; cursor: pointer;">Cancelar</button>
+                <button onclick="executarApagarDados()" style="flex: 1; padding: 10px; background: #c0392b; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL BLOQUEIO RÁPIDO -->
+    <div id="modalBloqueioLocal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 9999;">
+        <div style="background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 400px;">
+            <h2 style="color: #e74c3c; margin-top: 0; border-bottom: 2px solid #e74c3c; padding-bottom: 10px;">🔒 Controle da Tela</h2>
+            
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #e74c3c; font-weight: bold; font-size:16px; margin-top: 15px; background: #fdf2e9; padding: 10px; border-radius: 6px;">
+                <input type="checkbox" id="check-bloquear-local" style="width: 20px; height: 20px;"> 
+                TRAVAR TELA PARA TODOS OS USUÁRIOS
+            </label>
+
+            <label style="display: block; margin-top: 15px; font-weight: bold;">Mensagem na Tela:</label>
+            <textarea id="texto-bloqueio-local" rows="3" placeholder="Ex: Manutenção rápida. Voltamos em 5 min." style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; margin-top: 5px; resize:none;"></textarea>
+
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="document.getElementById('modalBloqueioLocal').style.display='none'" style="flex: 1; padding: 12px; background: #95a5a6; color: white; border: none; border-radius: 5px;">Cancelar</button>
+                <button onclick="salvarBloqueioLocal()" style="flex: 1; padding: 12px; background: #e74c3c; color: white; border: none; border-radius: 5px; font-weight:bold;">Aplicar Restrição</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL SUCESSO APAGAR -->
+    <div id="modal-sucesso-apagar" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 10006;">
+        <div class="modal-content" style="background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 350px; text-align: center;">
+            <h1 style="font-size: 50px; margin: 0; color: #27ae60;">✅</h1>
+            <h3 style="color: #27ae60; margin-top: 10px;">Sistema Resetado!</h3>
+            <p style="font-size: 15px; color: #333; margin-bottom: 20px;">Tudo foi apagado com sucesso.</p>
+            <button onclick="window.location.reload()" style="width: 100%; padding: 12px; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">OK (Recarregar)</button>
+        </div>
+    </div>
+
+    <div id="mensagemBaixa" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(40,167,69,0.9); color:white; padding:20px; border-radius:8px; z-index:10000; font-size:18px;"></div>
+    <div id="message" style="position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:10000; font-weight:bold; background:white; padding:10px; border-radius:5px; box-shadow:0 0 10px rgba(0,0,0,0.1); display:none;"></div>
+    
+    <script src="script.js"></script>
+    <script>
+        function sairDoSistema() {
+            sessionStorage.removeItem("usuarioLogado");
+            sessionStorage.removeItem("userRole");
+            window.location.replace("index.html");
+        }
+
+        // Fecha o menu do usuário ao clicar fora dele
+    document.addEventListener('click', function(event) {
+        var menu = document.getElementById('userMenu');
+        if (menu && !menu.contains(event.target)) {
+            menu.classList.remove('aberto');
+        }
+    });
+    
+    </script>
+</body>
+</html>

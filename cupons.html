@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <style id="trava-tela">
+      html { display: none !important; }
+  </style>
+  <script>
+      if (!sessionStorage.getItem("usuarioLogado")) {
+          window.location.replace("index.html");
+      } else {
+          document.getElementById("trava-tela").remove();
+      }
+      window.logoutUsuario = function() {
+          sessionStorage.clear();
+          window.location.replace("index.html");
+      };
+      window.sairDoSistema = window.logoutUsuario;
+  </script>
+  <meta charset="UTF-8" />
+  <title>Gerenciamento de Cupons</title>
+  <link rel="icon" href="icon.ico" type="image/x-icon">
+  <script type="module" src="firebase-banco.js"></script>
+  <style>
+    /* =========================================
+       TEMA GERAL E ESTRUTURA
+       ========================================= */
+    body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; color: #333; }
+    .container-cupons { max-width: 1200px; margin: 0 auto; }
+    .page-title { color: #2c3e50; margin-top: 0; margin-bottom: 20px; font-size: 26px; display: flex; align-items: center; gap: 10px; }
+
+    /* =========================================
+       BARRA DE AÇÕES (FILTROS)
+       ========================================= */
+    .quick-action-buttons { display: flex; gap: 15px; flex-wrap: wrap; background: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 25px; align-items: center; }
+    .input-moderno { flex: 1; min-width: 220px; padding: 14px 15px; border-radius: 8px; border: 1px solid #dcdde1; background-color: #f8f9fa; font-size: 14px; transition: all 0.3s ease; outline: none; }
+    .input-moderno:focus { border-color: #3498db; background-color: #fff; box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1); }
+    .btn-moderno { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 24px; border-radius: 8px; border: none; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s ease; text-transform: uppercase; letter-spacing: 0.5px; }
+    .btn-buscar { background-color: #3498db; color: white; }
+    .btn-buscar:hover { background-color: #2980b9; transform: translateY(-2px); }
+    .btn-limpar { background-color: #95a5a6; color: white; }
+    .btn-limpar:hover { background-color: #7f8c8d; transform: translateY(-2px); }
+    .btn-voltar { background-color: #e74c3c; color: white; margin-left: auto; }
+    .btn-voltar:hover { background-color: #c0392b; transform: translateY(-2px); }
+
+    /* =========================================
+       LAYOUT DIVIDIDO (LISTA E PREVIEW)
+       ========================================= */
+    .layout-dois-lados { display: flex; gap: 30px; width: 100%; align-items: flex-start; }
+    .lado-esquerdo-lista { flex: 1.5; }
+    .lado-direito-visualizador { flex: 1; position: sticky; top: 20px; }
+
+    /* =========================================
+       LISTA DE CARDS (CUPONS)
+       ========================================= */
+    .lista-cupons-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; width: 100%; max-height: 65vh; overflow-y: auto; padding-right: 10px; }
+    .lista-cupons-container::-webkit-scrollbar { width: 8px; }
+    .lista-cupons-container::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+    .lista-cupons-container::-webkit-scrollbar-thumb { background: #bdc3c7; border-radius: 10px; }
+    .lista-cupons-container::-webkit-scrollbar-thumb:hover { background: #95a5a6; }
+
+    .card-cupom { background: #ffffff; border: none; border-radius: 10px; padding: 18px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.04); transition: all 0.3s ease; position: relative; border-left: 5px solid #2ecc71; display: flex; flex-direction: column; gap: 8px; }
+    .card-cupom:hover { transform: translateY(-4px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); border-left-width: 8px; }
+    .card-cupom.cancelado { border-left-color: #e74c3c; background-color: #fff9f9; }
+    .card-cupom.cancelado:hover { border-left-color: #c0392b; }
+
+    .card-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+    .card-header-row h4 { margin: 0; color: #2c3e50; font-size: 16px; font-weight: 800; }
+    
+    .badge { padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+    .badge-ok { background: #e8f8f5; color: #27ae60; border: 1px solid #a3e4d7; }
+    .badge-cancel { background: #fdedec; color: #c0392b; border: 1px solid #f5b7b1; }
+
+    .card-info-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #555; margin: 0; }
+    .card-total { margin-top: 10px; font-size: 18px; font-weight: 900; text-align: right; }
+
+    /* =========================================
+       PREVIEW DO CUPOM (DIREITA)
+       ========================================= */
+    .preview-container-box { background: #e1e4e8; border-radius: 12px; padding: 30px 20px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; min-height: 300px; }
+    
+    .botoes-cupom-acoes { display: flex; gap: 15px; margin-top: 25px; width: 100%; justify-content: center; }
+    .botoes-cupom-acoes button { padding: 12px 20px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; transition: 0.2s; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .botoes-cupom-acoes button:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
+
+    .cupom-print { font-family: 'Courier New', Courier, monospace; font-size: 11px; width: 200px; margin: 0 auto; padding: 15px 10px; background: #fff; border: 1px solid #ccc; box-shadow: 0 10px 25px rgba(0,0,0,0.15); position: relative; }
+    .cupom-print::before, .cupom-print::after { content: ""; position: absolute; left: 0; right: 0; height: 4px; background-size: 8px 8px; }
+    .cupom-print::before { top: -4px; background-image: linear-gradient(135deg, transparent 50%, #fff 50%), linear-gradient(-135deg, transparent 50%, #fff 50%); }
+    .cupom-print::after { bottom: -4px; background-image: linear-gradient(135deg, #fff 50%, transparent 50%), linear-gradient(-135deg, #fff 50%, transparent 50%); }
+
+    .cupom-print * { color: #000 !important; font-weight: 900 !important; }
+    .cupom-print .header-container { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px; }
+    .cupom-print .loja-info { max-width: 100px; text-align: left; }
+    .cupom-print .loja-info h2 { margin: 0; font-size: 12px; text-transform: uppercase; line-height: 1.1; }
+    .cupom-print .loja-info p { margin: 2px 0 0 0; font-size: 9px; text-align: left; }
+    .cupom-print .pedido-box { border: 1px solid #000; padding: 2px; text-align: center; background: #fff; min-width: 45px; }
+    .cupom-print .pedido-box-label { font-size: 8px; text-transform: uppercase; display: block; margin-bottom: -2px; }
+    .cupom-print .pedido-box-numero { font-size: 16px; display: block; line-height: 1.1; }
+    .cupom-print .divider { border-top: 1px dashed #000; margin: 4px 0; }
+    .cupom-print p.titulo-cupom { margin: 2px 0; text-align: center; font-size: 10px; }
+    .cupom-print table { width: 100%; border-collapse: collapse; font-size: 10px; margin: 4px 0; }
+    .cupom-print th { border-bottom: 1px dashed #000; padding-bottom: 2px; text-align: left; font-size: 10px; }
+    .cupom-print td { padding: 2px 0; vertical-align: top; word-wrap: break-word; }
+    .cupom-print .right { text-align: right; }
+    .cupom-print .center { text-align: center; }
+    .cupom-print .info-line { display: flex; justify-content: space-between; font-size: 10px; margin: 2px 0; }
+
+    @media (max-width: 768px) {
+      .layout-dois-lados { flex-direction: column; }
+      .lado-direito-visualizador { position: static; width: 100%; }
+      .quick-action-buttons { flex-direction: column; align-items: stretch; }
+      .btn-voltar { margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+  <iframe id="iframe-impressao" style="display:none;"></iframe>
+
+  <div class="container-cupons">
+    <h2 class="page-title">🏷️ Gestão de Cupons e Pedidos</h2>
+
+    <div class="quick-action-buttons">
+      <input type="text" id="inputBuscarCupom" class="input-moderno" placeholder="🔍 Buscar por N° do Pedido, ID ou Cliente..." oninput="filtrarCupons()" />
+      <input type="date" id="inputFiltrarData" class="input-moderno" onchange="filtrarCupons()" />
+      
+      <button onclick="filtrarCupons()" class="btn-moderno btn-buscar">🔎 Buscar</button>
+      <button onclick="limparBuscaCupom()" class="btn-moderno btn-limpar">🧹 Limpar</button>
+      <button onclick="window.location.href='sistema.html'" class="btn-moderno btn-voltar">⬅ Voltar ao Painel</button>
+    </div>
+
+    <div class="layout-dois-lados">
+      
+      <div class="lado-esquerdo-lista">
+        <h3 style="font-size: 18px; color: #2c3e50; margin-top: 0; margin-bottom: 15px;">📋 Histórico de Transações</h3>
+        <div class="lista-cupons-container" id="container-lista-cupons">
+            <div style="text-align: center; grid-column: 1/-1; padding: 40px; color: #7f8c8d;">
+                <h1 style="font-size: 40px; margin: 0;">⏳</h1>
+                <p>Carregando os pedidos recentes...</p>
+            </div>
+        </div>
+      </div>
+
+      <div class="lado-direito-visualizador">
+        <h3 style="font-size: 18px; color: #2c3e50; margin-top: 0; margin-bottom: 15px; text-align: center;">🖨️ Visualização da Comanda</h3>
+        
+        <div class="preview-container-box">
+          <div id="resultado-cupom-content" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+            <div style='text-align:center; color:#7f8c8d; background:#fff; padding:40px 20px; border-radius:12px; border:2px dashed #bdc3c7; width: 100%;'>
+                <h1 style="font-size: 40px; margin: 0; margin-bottom: 10px;">🖱️</h1>
+                <h3 style="margin: 0; color: #34495e;">Nenhum cupom selecionado</h3>
+                <p style="font-size: 14px;">Clique em um pedido na lista ao lado para visualizar os detalhes, imprimir uma segunda via ou realizar o cancelamento.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="cupons.js"></script>
+</body>
+</html>

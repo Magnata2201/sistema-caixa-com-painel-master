@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Acesso Restrito | Anacleto Tec</title>
+  
+  <link rel="icon" href="icon.ico?v=2" type="image/x-icon">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="login.css" />
+  
+  <script type="module" src="firebase-banco.js"></script>
+</head>
+<body>
+
+  <div class="login-wrapper">
+    <div class="card-accent"></div>
+
+    <div class="login-header">
+      <div class="logo-box">🛒</div>
+      <h1>ANACLETO TEC 💻</h1>
+      <p>Gestão de Caixa e Estoque</p>
+    </div>
+
+    <div id="msg-erro" class="error-message"></div>
+    
+    <form id="form-login" onsubmit="executarLogin(event)">
+      <div class="input-group">
+        <label for="login-usuario">Utilizador / Operador</label>
+        <div class="input-with-icon">
+          <span class="icon">👤</span>
+          <input type="text" id="login-usuario" placeholder="Digite seu usuário" required autocomplete="username" />
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label for="login-senha">Senha de Acesso</label>
+        <div class="input-with-icon">
+          <span class="icon">🔒</span>
+          <input type="password" id="login-senha" placeholder="••••••••" required autocomplete="current-password" />
+        </div>
+      </div>
+
+      <button type="submit" id="btn-entrar" class="btn-primary">
+        Entrar no Sistema
+      </button>
+    </form>
+
+    <div class="login-footer">
+      <p>Área restrita a funcionários autorizados.</p>
+      <a href="https://www.anacletotec.com.br" target="_blank" class="btn-site">www.anacletotec.com.br</a>
+    </div>
+  </div>
+
+  <script src="login.js"></script>
+</body>
+</html>

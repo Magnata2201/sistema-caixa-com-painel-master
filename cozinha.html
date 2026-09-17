@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <style id="trava-tela">
+        html { display: none !important; }
+    </style>
+    <script>
+        if (!sessionStorage.getItem("usuarioLogado")) {
+            window.location.replace("index.html");
+        } else {
+            document.getElementById("trava-tela").remove();
+        }
+        window.logoutUsuario = function() {
+            sessionStorage.clear();
+            window.location.replace("index.html");
+        };
+        window.sairDoSistema = window.logoutUsuario;
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor da Cozinha (KDS)</title>
+    <script type="module" src="firebase-banco.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #121212; color: #fff; margin: 0; padding: 0; }
+        .kds-header { background: #2c3e50; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #e67e22; }
+        .kds-header h1 { margin: 0; font-size: 24px; display: flex; align-items: center; gap: 10px; }
+        .btn-voltar { background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 16px; }
+        .kds-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; padding: 20px; }
+        .kds-card { background: #1e272e; border: 2px solid #e67e22; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
+        .kds-card-header { background: #e67e22; color: #fff; padding: 15px; font-size: 22px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .kds-card-body { padding: 15px; flex-grow: 1; }
+        .kds-cliente { font-size: 16px; margin-bottom: 15px; border-bottom: 1px solid #555; padding-bottom: 10px; }
+        .kds-item { font-size: 18px; font-weight: bold; margin-bottom: 10px; display: flex; align-items: flex-start; gap: 10px; }
+        .kds-qtd { background: #fff; color: #000; padding: 2px 8px; border-radius: 4px; font-size: 16px; }
+        .kds-obs { font-size: 14px; color: #f1c40f; font-weight: bold; margin-top: 15px; background: rgba(241, 196, 15, 0.1); padding: 10px; border-radius: 5px; border-left: 4px solid #f1c40f; }
+        .kds-btn { display: block; width: 100%; padding: 15px; background: #27ae60; color: white; border: none; font-size: 20px; font-weight: bold; cursor: pointer; transition: 0.2s; text-transform: uppercase; }
+        .kds-btn:hover { background: #2ecc71; }
+        .kds-vazio { text-align: center; font-size: 24px; color: #777; margin-top: 100px; grid-column: 1 / -1; }
+        .kds-hora { font-size: 14px; font-weight: normal; }
+    </style>
+</head>
+<body>
+
+    <div class="kds-header">
+        <h1>👨‍🍳 Monitor da Cozinha (KDS)</h1>
+        <button class="btn-voltar" onclick="window.location.href='sistema.html'">⬅ Voltar ao Painel</button>
+    </div>
+
+    <div id="grid-pedidos-cozinha" class="kds-grid">
+        <!-- Pedidos aparecerão aqui -->
+    </div>
+
+    <script src="cozinha.js"></script>
+</body>
+</html>

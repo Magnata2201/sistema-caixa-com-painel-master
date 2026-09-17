@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <style id="trava-tela">
+      /* A página nasce totalmente invisível */
+      html { display: none !important; }
+  </style>
+  <script>
+      // Verificação instantânea
+      if (!sessionStorage.getItem("usuarioLogado")) {
+          window.location.replace("index.html"); 
+      } else {
+          document.getElementById("trava-tela").remove();
+      }
+      window.logoutUsuario = function() {
+          sessionStorage.clear();
+          window.location.replace("index.html");
+      };
+      window.sairDoSistema = window.logoutUsuario;
+  </script>
+  <meta charset="UTF-8" />
+  <title>Frente de Caixa</title>
+  <link rel="icon" href="icon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="caixa.css" />
+  <script type="module" src="firebase-banco.js"></script>
+</head>
+<body>
+  <!-- O restante do arquivo (body) continua igual -->
+  <iframe id="iframe-impressao" style="display:none;"></iframe>
+
+  <div id="top-bar">
+    <div class="top-bar-left">
+      <span class="logo">🛒</span>
+      <span class="nome-loja" id="display-nome-loja">Nome da Loja</span>
+    </div>
+    <div class="top-bar-middle">
+        <span>Operador: <strong id="display-operador">N/A</strong></span>
+        <span>Status: <strong id="display-status-caixa">Fechado</strong></span>
+    </div>
+    <div class="top-bar-right">
+      <span id="display-horario">--:--</span>
+      <button class="settings-button admin-only" id="btn-config-caixa" onclick="abrirModalConfiguracoes()" style="display:none;">⚙️</button>
+    </div>
+  </div>
+
+  <div id="bloqueio-tela">
+    <p style="font-size:22px; margin-bottom: 20px;">🔒 Caixa fechado. Clique abaixo para abrir:</p>
+    <button id="btn-abrir-caixa" onclick="abrirModalAbertura()"> 🟢 Abrir Caixa</button>
+  </div>
+
+  <div class="container">
+    <div class="esquerda">
+      <h1>🗳️ Frente de Caixa</h1>
+      <div class="input-section">
+        <label for="codigo-barra">Código de Barras:</label>
+        <input type="text" id="codigo-barra" placeholder="Código de barras" onkeypress="if(event.key === 'Enter') adicionarItemVenda()" />
+        <label for="quantidade-produto" style="margin-top: 8px;">Quantidade:</label>
+        <input type="number" id="quantidade-produto" placeholder="Quantidade" min="1" value="1" onkeypress="if(event.key === 'Enter') adicionarItemVenda()" />
+        
+        <div class="total-display">Total da Venda: R$ <span id="total-geral">0.00</span></div>
+        
+        <div id="status-cliente-fidelidade" style="display: none; background: #fdf2e9; border: 1px solid #f39c12; color: #d35400; padding: 10px; border-radius: 8px; font-weight: bold; margin-top: 15px;">
+            ⭐ Cliente Fidelidade: <span id="nome-cliente-fidelidade-vinculado"></span>
+            <button onclick="removerClienteFidelidade()" style="float: right; background: none; border: none; color: #e74c3c; cursor: pointer; font-weight: bold;">X Remover</button>
+        </div>
+      </div>
+      
+      <div class="botoes-caixa">
+        <button onclick="abrirOpcoesPagamento()">✅ Finalizar Venda [F2]</button>
+        <button onclick="fecharCaixa()">📦 Fechar Caixa [F9]</button>
+        <button onclick="abrirModalSangria()">➖ Sangria [F4]</button>
+        <button onclick="reimprimirUltimoCupom()">🖨️ Reimprimir Cupom [F8]</button>
+        <button id="btn-desconto" onclick="abrirModalDesconto()">Desconto [F3]</button>
+        <button style="background: #2980b9; color: white;" onclick="abrirModalEstoque()">🔍 Consultar Estoque</button>
+        <button style="background: #34495e; color: white; grid-column: span 2;" onclick="window.location.href='sistema.html'">⬅ Voltar Sistema [ESC]</button>
+      </div>
+    </div>
+
+    <div class="direita">
+      <div class="product-table-section">
+        <h3>Produtos na Venda</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Produto</th>
+              <th>Código</th>
+              <th>Qtd</th>
+              <th>Unit.</th>
+              <th>Subtotal</th>
+            </tr>
+          </thead>
+          <tbody id="itens-venda"></tbody>
+        </table>
+        <div style="margin-top: 10px; font-weight: bold; text-align: right;">
+          Total Geral: R$ <span id="total-geral-lado">0.00</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-abertura" class="modal">
+    <div class="modal-content">
+      <h3>💵 Abertura de Caixa 💵</h3>
+      <label>Valor de Abertura:</label>
+      <input type="number" step="0.01" id="valor-abertura" placeholder="Ex: 100.00" />
+      <button onclick="confirmarAbertura()">Confirmar Abertura</button>
+    </div>
+  </div>
+
+  <div id="modal-pagamento" class="modal">
+    <div class="modal-content">
+      <span class="close-button" onclick="fecharModalPagamento()">&times;</span>
+      <h2>Formas de Pagamento</h2>
+      <p>[1] Pix</p><p>[2] Crédito</p><p>[3] Débito</p><p>[4] Dinheiro</p><p>[5] Cheque</p><p>[6] VR</p><p>[7] Pagamento Misto</p>
+      <button onclick="fecharModalPagamento()" class="cancel">Cancelar</button>
+    </div>
+  </div>
+
+  <div id="modal-senha-fechamento" class="modal">
+    <div class="modal-content">
+      <span class="close-button" onclick="fecharModalSenhaFechamento()">&times;</span>
+      <h3>🔐 Fechar Caixa</h3>
+      <input type="password" id="input-senha-fechar" placeholder="Digite a senha de fechamento" />
+      <button onclick="confirmarFechamentoCaixa()" class="confirm">Confirmar e Imprimir Resumo</button>
+      <button onclick="fecharModalSenhaFechamento()" class="cancel">Cancelar</button>
+    </div>
+  </div>
+
+  <div id="modal-troco" class="modal">
+    <div class="modal-content">
+      <span class="close-button" onclick="fecharModalTroco()">&times;</span>
+      <h3>Pagamento em Dinheiro</h3>
+      <div><label>Total da Venda:</label><strong id="total-em-dinheiro"></strong></div>
+      <div><label>Valor Recebido:</label><input type="number" step="0.01" id="valor-recebido" /></div>
+      <div><label>Troco:</label><strong id="valor-troco">R$ 0,00</strong></div>
+      <button onclick="confirmarTroco()" class="confirm">Confirmar Pagamento</button>
+    </div>
+  </div>
+
+  <div id="modal-pagamento-misto" class="modal">
+    <div class="modal-content">
+      <span class="close-button" onclick="fecharModalMisto()">&times;</span>
+      <h3>Pagamento Misto</h3>
+      <div><label>Pix:</label><input type="number" step="0.01" id="pg-pix" /></div>
+      <div><label>Crédito:</label><input type="number" step="0.01" id="pg-credito" /></div>
+      <div><label>Débito:</label><input type="number" step="0.01" id="pg-debito" /></div>
+      <div><label>Dinheiro:</label><input type="number" step="0.01" id="pg-dinheiro" /></div>
+      <div><label>Cheque:</label><input type="number" step="0.01" id="pg-cheque" /></div>
+      <div><label>VR:</label><input type="number" step="0.01" id="pg-vr" /></div>
+      <hr>
+      <div><label><strong>Total da Venda:</strong></label><strong id="total-misto"></strong></div>
+      <button onclick="confirmarPagamentoMisto()" class="confirm">Confirmar</button>
+      <button onclick="fecharModalMisto()" class="cancel">Cancelar</button>
+    </div>
+  </div>
+
+  <div id="modal-senha-cancelar" class="modal">
+    <div class="modal-content">
+      <span class="close-button" onclick="fecharModalSenhaCancelar()">&times;</span>
+      <h3>🔐 Cancelar Item</h3>
+      <input type="password" id="senha-cancelar-input" placeholder="Digite a senha de cancelamento" />
+      <button onclick="confirmarCancelamento()" class="confirm">Confirmar</button>
+      <button onclick="fecharModalSenhaCancelar()" class="cancel">Cancelar</button>
+    </div>
+  </div>
+
+  <div id="modal-sangria" class="modal">
+    <div class="modal-content">
+      <span class="close-button" onclick="fecharModalSangria()">&times;</span>
+      <h3>Remover Valor (Sangria)</h3>
+      <label>Valor (R$):</label>
+      <input type="number" step="0.01" id="valor-sangria" />
+      <label>Motivo da Sangria:</label>
+      <input type="text" id="motivo-sangria" placeholder="Ex: Pagamento de conta" />
+      <button onclick="confirmarSangria()" class="confirm">Confirmar Sangria</button>
+      <button onclick="fecharModalSangria()" class="cancel">Cancelar</button>
+    </div>
+  </div>
+
+  <div id="modal-desconto" class="modal">
+    <div class="modal-content">
+        <span class="modal-close-button" onclick="fecharModalDesconto()">&times;</span>
+        <h3>Aplicar Desconto</h3>
+        <p><strong>Total da Venda:</strong> R$ <span id="desconto-valor-total-venda">0.00</span></p>
+        <label>Senha de Administrador:</label>
+        <input type="password" id="senha-desconto" placeholder="Digite a senha">
+        <label>Valor do Desconto (R$):</label>
+        <input type="number" id="valor-desconto" placeholder="Ex: 5.00" step="0.01">
+        <button class="confirm" onclick="confirmarDesconto()">Aplicar Desconto</button>
+        <button class="cancel" onclick="fecharModalDesconto()">Cancelar</button>
+    </div>
+  </div>
+
+  <div id="modal-estoque" class="modal">
+    <div class="modal-content modal-estoque-content">
+      <span class="close-button" onclick="fecharModalEstoque()">&times;</span>
+      <h3>📦 Consulta de Estoque</h3>
+      <div class="estoque-tabela-container">
+        <table>
+          <thead>
+            <tr><th>Código</th><th>Nome do Produto</th><th>Preço Unitário</th><th>Qtd em Estoque</th></tr>
+          </thead>
+          <tbody id="lista-estoque-corpo"></tbody>
+        </table>
+      </div>
+      <button onclick="fecharModalEstoque()" class="cancel">Fechar Janela</button>
+    </div>
+  </div>
+
+  <div id="modal-cliente-obs" class="modal">
+    <div class="modal-content">
+      <span class="close-button" onclick="fecharModalClienteObs()">&times;</span>
+      <h3>📝 Dados do Cliente (Opcional)</h3>
+      <label style="margin-top: 10px; display: block;">Nome do Cliente:</label>
+      <input type="text" id="nome-cliente-venda" placeholder="Ex: João da Silva" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc;" onkeypress="if(event.key === 'Enter') document.getElementById('obs-venda').focus()" />
+      <label style="margin-top: 10px; display: block;">Observação:</label>
+      <textarea id="obs-venda" placeholder="Ex: Sem cebola, entregar na porta..." rows="3" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; resize: none;" onkeypress="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); confirmarDadosCliente(); }"></textarea>
+      <button onclick="confirmarDadosCliente()" class="confirm">🖨️ Finalizar e Imprimir</button>
+      <button onclick="fecharModalClienteObs()" class="cancel">Voltar</button>
+    </div>
+  </div>
+
+  <div id="modal-alerta-premio" class="modal" style="z-index: 10005;">
+    <div class="modal-content" style="text-align: center; border: 3px solid #f39c12; max-width: 400px;">
+      <h1 style="font-size: 50px; margin: 0;">🏆</h1>
+      <h2 style="color: #f39c12; margin-top: 10px;">PARABÉNS!</h2>
+      <p id="texto-alerta-premio" style="font-size: 15px; font-weight: bold; margin-bottom: 25px; color: #2c3e50;"></p>
+      <button onclick="fecharModalPremio()" style="background: #f39c12; color: white; width: 100%; padding: 12px; font-size: 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold;">OK (Aperte Enter)</button>
+    </div>
+  </div>
+
+  <div id="modal-pergunta-fidelidade" class="modal">
+    <div class="modal-content" style="text-align: center;">
+      <h2 style="color: #f39c12; margin-top: 0;">⭐ Clube Fidelidade</h2>
+      <p style="font-size: 16px; margin-bottom: 20px;">Deseja vincular este pedido a um Cliente Fidelidade?</p>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button onclick="abrirBuscaFidelidade()" style="background: #27ae60; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold;">Sim, já tem cadastro</button>
+        <button onclick="abrirCadastroFidelidade()" style="background: #2980b9; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold;">Não, quero cadastrar agora</button>
+        <button onclick="ignorarFidelidade()" style="background: #95a5a6; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold;">Não deseja participar (Pular)</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-busca-fidelidade" class="modal">
+    <div class="modal-content">
+      <span class="close-button" onclick="ignorarFidelidade()">&times;</span>
+      <h3 style="color: #27ae60;">🔍 Buscar Cliente Fidelidade</h3>
+      <label>CPF/CNPJ ou Telefone:</label>
+      <input type="text" id="input-busca-fidelidade" placeholder="Digite apenas os números..." style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; margin-bottom: 15px;" onkeypress="if(event.key === 'Enter') buscarClienteFidelidade()">
+      <button onclick="buscarClienteFidelidade()" class="confirm">Buscar Cliente</button>
+      <button onclick="ignorarFidelidade()" class="cancel">Pular</button>
+    </div>
+  </div>
+
+  <div id="modal-cadastro-fidelidade" class="modal">
+    <div class="modal-content">
+      <span class="close-button" onclick="ignorarFidelidade()">&times;</span>
+      <h3 style="color: #2980b9;">📝 Novo Cliente Fidelidade</h3>
+      <label>Nome Completo:</label>
+      <input type="text" id="cad-fid-nome" placeholder="Ex: Maria Silva" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; margin-bottom: 10px;">
+      <label>CPF/CNPJ (Sem pontuação):</label>
+      <input type="text" id="cad-fid-doc" placeholder="12345678900" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; margin-bottom: 10px;">
+      <label>Telefone/WhatsApp:</label>
+      <input type="text" id="cad-fid-tel" placeholder="11999999999" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; margin-bottom: 15px;">
+      <button onclick="salvarNovoClienteFidelidade()" class="confirm">Salvar Cadastro e Vincular</button>
+      <button onclick="ignorarFidelidade()" class="cancel">Pular</button>
+    </div>
+  </div>
+
+  <script src="caixa.js"></script>
+</body>
+</html>

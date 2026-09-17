@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <style id="trava-tela">
+      html { display: none !important; }
+  </style>
+  <script>
+      if (!sessionStorage.getItem("usuarioLogado")) {
+          window.location.replace("index.html");
+      } else {
+          document.getElementById("trava-tela").remove();
+      }
+      window.logoutUsuario = function() {
+          sessionStorage.clear();
+          window.location.replace("index.html");
+      };
+      window.sairDoSistema = window.logoutUsuario;
+      
+      window.addEventListener("pageshow", function(event) { 
+          if (event.persisted && !sessionStorage.getItem("usuarioLogado")) window.location.replace("index.html"); 
+      });
+  </script>
+  <meta charset="UTF-8" />
+  <title>Fim de Estoque</title>
+  <link rel="icon" href="icon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="fim-estoque.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script type="module" src="firebase-banco.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h2>Produtos com Estoque Baixo (≤ 5 unidades)</h2>
+    <div class="header-actions">
+      <button onclick="window.location.href='sistema.html'">Voltar</button>
+      <div class="botoes-container">
+        <button id="btnImprimirCompleto">Imprimir Relatório Completo</button>
+        <button id="btnSalvarPDF">Salvar como PDF</button>
+      </div>
+    </div>
+    <input type="text" id="filtroInput" placeholder="Filtrar por nome ou código..." class="filter-input" />
+    <div class="table-container">
+      <table id="low-stock-table">
+        <thead>
+          <tr><th>Código</th><th>Nome do Produto</th><th>Quantidade</th><th>Valor Unitário</th><th>Valor Total</th></tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" class="total-label">Valor Total do Estoque Baixo:</td>
+            <td id="total-low-stock-value" class="total-value">R$ 0,00</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    // 1. Função que monta e atualiza a tabela de estoque baixo
+    function atualizarTabelaBaixoEstoque() {
+      if (typeof window.obterDados !== "function") return;
+
+      var produtos = window.obterDados("produtos");
+      if (!produtos) { produtos = {}; }
+
+      var filtroInput = document.getElementById("filtroInput");
+      var tbody = document.querySelector("#low-stock-table tbody");
+      var totalElement = document.getElementById("total-low-stock-value");
+
+      if (!tbody || !totalElement) return;
+
+      var filtro = filtroInput ? filtroInput.value.toLowerCase().trim() : "";
+      var total = 0;
+      var filtrados = [];
+
+      var chaves = Object.keys(produtos);
+      for (var i = 0; i < chaves.length; i++) {
+          var codigo = chaves[i];
+          var p = produtos[codigo];
+          
+          if (p.quantidade <= 5) {
+              if (codigo.toLowerCase().includes(filtro) || p.nome.toLowerCase().includes(filtro)) {
+                  filtrados.push({ codigo: codigo, p: p });
+              }
+          }
+      }
+
+      tbody.innerHTML = "";
+
+      if (filtrados.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='5' style='text-align:center; padding:20px;'>Nenhum produto com estoque baixo encontrado.</td></tr>";
+        totalElement.innerText = "R$ 0,00";
+        return;
+      }
+
+      filtrados.forEach(function(item) {
+        var codigo = item.codigo;
+        var p = item.p;
+        var valorTotal = p.quantidade * p.valor;
+        total += valorTotal;
+        
+        var tr = document.createElement("tr");
+        tr.innerHTML = "<td>" + codigo + "</td>" +
+                       "<td>" + p.nome + "</td>" +
+                       "<td>" + p.quantidade + "</td>" +
+                       "<td>R$ " + parseFloat(p.valor).toFixed(2) + "</td>" +
+                       "<td>R$ " + parseFloat(valorTotal).toFixed(2) + "</td>";
+        tbody.appendChild(tr);
+      });
+      
+      totalElement.innerText = "R$ " + total.toFixed(2);
+    }
+
+    document.addEventListener("dadosAtualizados", atualizarTabelaBaixoEstoque);
+    document.addEventListener("bancoPronto", atualizarTabelaBaixoEstoque);
+    
+    var inputFiltro = document.getElementById("filtroInput");
+    if (inputFiltro) {
+        inputFiltro.addEventListener("input", atualizarTabelaBaixoEstoque);
+    }
+
+    if (window.isBancoPronto) {
+        atualizarTabelaBaixoEstoque();
+    }
+
+    var btnPdf = document.getElementById("btnSalvarPDF");
+    if (btnPdf) {
+      btnPdf.addEventListener("click", function() {
+        var element = document.querySelector(".container");
+        var opt = { 
+            margin: 10, 
+            filename: "estoque_baixo.pdf", 
+            html2canvas: { scale: 2 }, 
+            jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+        };
+        html2pdf().set(opt).from(element).save();
+      });
+    }
+
+    var btnImprimir = document.getElementById("btnImprimirCompleto");
+    if (btnImprimir) {
+      btnImprimir.addEventListener("click", function() {
+        var container = document.querySelector(".container");
+        if (!container) return;
+
+        var clone = container.cloneNode(true);
+        var elementosParaRemover = clone.querySelectorAll("button, input, select, .quick-action-buttons");
+        elementosParaRemover.forEach(function(el) { el.remove(); });
+
+        var style = document.createElement("style");
+        style.textContent = "body, html { margin:0; padding:0; font-family: Arial, sans-serif; } " +
+                            "table { width: 100% !important; border-collapse: collapse !important; margin-top: 20px; } " +
+                            "th, td { border: 1px solid #000 !important; padding: 10px 8px !important; text-align: left; font-size: 11pt !important; } " +
+                            "th { background-color: #f0f0f0 !important; font-weight: bold; text-align: center; } " +
+                            "h2 { text-align: center; margin: 0.5cm 0; }";
+
+        var iframe = document.createElement("iframe");
+        iframe.style.display = "none";
+        document.body.appendChild(iframe);
+
+        var doc = iframe.contentWindow.document;
+        doc.head.appendChild(style);
+        doc.body.appendChild(clone);
+
+        setTimeout(function() {
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+          setTimeout(function() { document.body.removeChild(iframe); }, 1000);
+        }, 500);
+      });
+    }
+  </script>
+</body>
+</html>

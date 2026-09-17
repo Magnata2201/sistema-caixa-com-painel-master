@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <style id="trava-tela">
+      html { display: none !important; }
+  </style>
+  <script>
+      if (!sessionStorage.getItem("usuarioLogado")) {
+          window.location.replace("index.html");
+      } else {
+          document.getElementById("trava-tela").remove();
+      }
+      window.logoutUsuario = function() {
+          sessionStorage.clear();
+          window.location.replace("index.html");
+      };
+      window.sairDoSistema = window.logoutUsuario;
+  </script>
+  <meta charset="UTF-8" />
+  <title>Gestão Clube Fidelidade</title>
+  <link rel="icon" href="icon.ico" type="image/x-icon">
+  <script type="module" src="firebase-banco.js"></script>
+  <style>
+    body { background: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; color: #333; }
+    .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f39c12; padding-bottom: 15px; margin-bottom: 20px; }
+    input { width: 100%; max-width: 400px; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; outline: none; }
+    input:focus { border-color: #f39c12; box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.2); }
+    .btn-voltar { background: #34495e; color: white; padding: 12px 20px; text-decoration: none; border-radius: 8px; font-weight: bold; transition: 0.3s; }
+    .btn-voltar:hover { background: #2c3e50; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+    th { background: #f8f9fa; color: #2c3e50; font-weight: 700; text-transform: uppercase; font-size: 13px; }
+    tbody tr:hover { background-color: #fafafa; }
+    .meta-tag { background: #e8f8f5; color: #27ae60; padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 12px; }
+    .brinde-tag { background: #fdf2e9; color: #d35400; padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 12px; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(211, 84, 0, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(211, 84, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(211, 84, 0, 0); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2 style="margin: 0; color: #2c3e50; display: flex; align-items: center; gap: 10px;">⭐ Painel Clube Fidelidade</h2>
+      <a href="sistema.html" class="btn-voltar">⬅ Voltar ao Sistema</a>
+    </div>
+    
+    <div style="display: flex; gap: 15px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+      <input type="text" id="busca-fidelidade" placeholder="🔍 Pesquisar por Nome, CPF ou Telefone..." oninput="renderizarLista()">
+      <div style="font-size: 14px; color: #777; background: #f1f2f6; padding: 10px 15px; border-radius: 8px;" id="info-meta"></div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Nome do Cliente</th>
+          <th>CPF / CNPJ</th>
+          <th>Telefone</th>
+          <th>Progresso</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="corpo-tabela"></tbody>
+    </table>
+  </div>
+
+  <script src="fidelidade.js"></script>
+</body>
+</html>

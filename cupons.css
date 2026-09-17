@@ -1,0 +1,58 @@
+/* cupons.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: #f4f6f9;
+  color: #333;
+  padding: 20px;
+}
+
+.container-cupons {
+  background: #fff;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  margin: 0 auto;
+}
+
+.date-separator {
+  grid-column: 1 / -1;
+  font-size: 14px;
+  font-weight: 700;
+  color: #2c3e50;
+  background: #eef2f7;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-top: 15px;
+  margin-bottom: 5px;
+  border-left: 4px solid #3498db;
+}
+
+/* Simulador ajustado para a largura de 50mm */
+.cupom-termico-simulador {
+  background: #fffdf5;
+  border: 1px dashed #b5b5b5;
+  padding: 10px;
+  font-family: 'Courier New', monospace;
+  color: #000;
+  width: 100%;
+  max-width: 170px;
+  margin: 0 auto;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+.cupom-termico-simulador h2 { font-size: 12px; text-align: center; margin-bottom: 5px; }
+.cupom-termico-simulador p { font-size: 9px; text-align: center; }
+.cupom-termico-simulador .divider { border-top: 1px dashed #000; margin: 6px 0; }
+.cupom-termico-simulador table { width: 100%; font-size: 9px; }
+.cupom-termico-simulador .right { text-align: right; }
+.cupom-termico-simulador .bold { font-weight: bold; }
+.cupom-termico-simulador .info-line { display: flex; justify-content: space-between; font-size: 9px; }
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(0.3);
+}
